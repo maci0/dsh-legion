@@ -355,3 +355,36 @@ test('a settings change applies to the very next command', async () => {
   assert.match(kickoff, /depth cap: 7/)
   assert.match(kickoff, /"reconcile" strategy/)
 })
+
+test('formatStatus renders a bounded report in one pass (work counters)', () => {
+  // Perf gate on work, never wall clock: getter reads count the operations a
+  // render must do, so the gate holds on a loaded machine. Baseline recorded
+  // on Node v26.10.0, Ryzen 9950X: one counting pass touches status 3n times
+  // plus row touches, and only the 40 rendered rows read id and subject.
+  // A render-then-slice over every row, or one more full pass, breaks the gate.
+  const reads = { status: 0, subject: 0, id: 0 }
+  const mk = (n) => Array.from({ length: n }, (_, j) => ({
+    get id() { reads.id += 1; return `T${j}` },
+    get status() { reads.status += 1; return j % 3 === 0 ? 'completed' : j % 3 === 1 ? 'in_progress' : 'pending' },
+    get subject() { reads.subject += 1; return `subject line ${j}` },
+    ready: j % 5 === 0,
+    blockedBy: j % 7 === 0 ? [`T${j - 1}`] : [],
+  }))
+  const members = [{ name: 'lead', role: 'lead', status: 'running' }]
+
+  const small = formatStatus({ members, tasks: mk(40) })
+  assert.ok(reads.subject <= 50, `subject reads ${reads.subject}`)
+  assert.ok(reads.id <= 50, `id reads ${reads.id}`)
+  assert.ok(reads.status <= 3.5 * 40 + 200, `status reads ${reads.status}`)
+
+  reads.status = reads.subject = reads.id = 0
+  const huge = formatStatus({ members, tasks: mk(10_000) })
+  assert.ok(reads.subject <= 50, `subject reads ${reads.subject}`)
+  assert.ok(reads.id <= 50, `id reads ${reads.id}`)
+  assert.ok(reads.status <= 3.5 * 10_000 + 200, `status reads ${reads.status}`)
+
+  const rows = (text) => text.split('\n').filter((line) => line.startsWith('  T'))
+  assert.equal(rows(huge).length, 40, 'exactly 40 board rows at any size')
+  assert.deepEqual(rows(huge), rows(small), 'the same first 40 rows either way')
+  assert.equal(huge.split('\n').length, small.split('\n').length + 1, 'overflow adds one summary line')
+})
