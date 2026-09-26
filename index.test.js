@@ -97,7 +97,7 @@ test('formatConfig reports every setting and the edit path', () => {
   assert.match(text, /merge strategy: best/)
   assert.match(text, /approval: required/)
   assert.match(text, /unlimited/)
-  assert.match(text, /Settings → Plugins → Legion/)
+  assert.match(text, /Plugins page, on the Legion row's Configure control/)
 })
 
 test('formatStatus renders roster, counts, owners, and blockers', () => {
@@ -319,7 +319,7 @@ test('/legion config prints the effective settings', async () => {
   const result = await handler(invocation(fakeAgent(), 'config'))
   assert.equal(result.kind, 'success')
   assert.match(result.text, /min subtasks: 2, max subtasks: 4/)
-  assert.match(result.text, /Settings → Plugins → Legion/)
+  assert.match(result.text, /Plugins page, on the Legion row's Configure control/)
 })
 
 test('empty input returns the usage line as an error', async () => {

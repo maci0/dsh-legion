@@ -12,7 +12,7 @@
  *   /legion reject <reason>     reject the root deliverable with a reason
  *
  * Configuration lives in the `legion` settings namespace (patch row or the
- * Settings → Plugins card). It rides into the run inside the kickoff relay,
+ * Plugins-page card). It rides into the run inside the kickoff relay,
  * so a change applies to the next run with no reload and costs no prompt
  * on turns where no run is active.
  *

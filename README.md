@@ -60,7 +60,7 @@ section: the patch row is the base, the settings document overrides it.
 
 Edit either way:
 
-- **Config menu** — Settings → Plugins → Legion: every field with its bounds,
+- **Config menu** — Plugins → the `legion` row's **Configure** control: every field with its bounds,
   merge-strategy and approval toggles, overridden-field markers and a one-click
   Reset, read-only state when the deployment does not persist settings.
 - **Patch row** — a `- id: legion` row in your profile's `cordis.patch.yml`
