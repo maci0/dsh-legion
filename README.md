@@ -71,6 +71,12 @@ config` always prints what the next run will actually use.
 
 ## Install
 
+> **Install it as a bundle.** `dsh plugin add …` mounts the row from the
+> package's own patch layer, which is what the settings editor can write to. A
+> row added with `--patch` is an overlay: it disappears at the next start, and
+> the Plugins card cannot save into it — the editor refuses a write an overlay
+> would win.
+
 `dsh plugin add dsh-legion`, or add the package to your profile's
 `cordis.patch.yml` bundles. The bundled `cordis.patch.yml` inserts the `legion`
 row automatically. For local development: `--patch cordis.local.yml`.
