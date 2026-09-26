@@ -159,8 +159,7 @@ const { apply } = await import('./index.js')
  */
 function mount({ teams } = {}) {
   let registered
-  let hooks
-  let entry
+  const config = {}
   const ctx = {
     // Real cordis runs an inject callback only when the service is present,
     // so the fake provides `settings` and skips anything it does not carry.
@@ -168,14 +167,6 @@ function mount({ teams } = {}) {
       if (deps.every((dep) => ctx[dep] !== undefined)) cb(ctx)
     },
     effect: (fn) => fn(),
-    settings: {
-      installSection: (_owner, ns, schema, base, sectionHooks) => {
-        entry = schema(base)
-        hooks = sectionHooks
-        hooks.setSource(() => entry)
-        hooks.onChange()
-      },
-    },
     commands: {
       register: (definition) => {
         registered = definition
@@ -184,14 +175,13 @@ function mount({ teams } = {}) {
     },
     get: (key) => (key === 'agentTeams' ? teams : undefined),
   }
-  apply(ctx, {})
+  apply(ctx, config)
   return {
     handler: registered.handler,
     definition: registered,
-    /** Overwrite the settings section the handler will read. */
+    /** Overwrite the live config the handler will read. */
     setSection: (value) => {
-      entry = { ...entry, ...value }
-      hooks.onChange()
+      Object.assign(config, value)
     },
   }
 }
@@ -247,7 +237,7 @@ test('/legion start queues a kickoff relay carrying the task', async () => {
   const blocks = agent.queued[0].content
   assert.equal(blocks[blocks.length - 1].type, 'text')
   assert.match(blocks[blocks.length - 1].text, /Task: ship the v2 API/)
-  assert.equal(agent.queued[0].source.plugin, 'legion')
+  assert.equal(agent.queued[0].source.kind, 'legion')
 })
 
 test('attachments ride a starting run and are rejected elsewhere', async () => {

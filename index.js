@@ -40,19 +40,18 @@ export const name = 'legion'
 export const inject = ['commands']
 
 /**
- * Row schema: what Cordis validates this plugin's `config` against, and the
- * base layer the settings section starts from. Every field is a deployment
- * default here and an ordinary user setting in the card.
+ * Row schema. v0.1.7 reads settings from this Config, not a side document.
+ * `.volatile()` lets a profile edit land without remounting the plugin.
  */
 export const Config = z.object({
-  minSubtasks: z.number().step(1).min(1).max(20).default(DEFAULTS.minSubtasks),
-  maxSubtasks: z.number().step(1).min(1).max(20).default(DEFAULTS.maxSubtasks),
-  maxDepth: z.number().step(1).min(1).max(20).default(DEFAULTS.maxDepth),
-  workersPerTask: z.number().step(1).min(1).max(16).default(DEFAULTS.workersPerTask),
-  mergeStrategy: z.union(['best', 'reconcile']).default(DEFAULTS.mergeStrategy),
-  maxReviewRetries: z.number().step(1).min(0).max(20).default(DEFAULTS.maxReviewRetries),
-  requireHumanApproval: z.boolean().default(DEFAULTS.requireHumanApproval),
-  maxTasksPerRun: z.number().step(1).min(0).max(10000).default(DEFAULTS.maxTasksPerRun),
+  minSubtasks: z.number().step(1).min(1).max(20).default(DEFAULTS.minSubtasks).volatile(),
+  maxSubtasks: z.number().step(1).min(1).max(20).default(DEFAULTS.maxSubtasks).volatile(),
+  maxDepth: z.number().step(1).min(1).max(20).default(DEFAULTS.maxDepth).volatile(),
+  workersPerTask: z.number().step(1).min(1).max(16).default(DEFAULTS.workersPerTask).volatile(),
+  mergeStrategy: z.union(['best', 'reconcile']).default(DEFAULTS.mergeStrategy).volatile(),
+  maxReviewRetries: z.number().step(1).min(0).max(20).default(DEFAULTS.maxReviewRetries).volatile(),
+  requireHumanApproval: z.boolean().default(DEFAULTS.requireHumanApproval).volatile(),
+  maxTasksPerRun: z.number().step(1).min(0).max(10000).default(DEFAULTS.maxTasksPerRun).volatile(),
 })
 
 /** Settings namespace shared with the browser card — the join key between halves. */
@@ -70,7 +69,7 @@ export const LEGION_SETTINGS_SCHEMA = Config
 function relay(agent, text, attachments = []) {
   agent.followup(createUserMessage({
     content: [...attachments, { type: 'text', text }],
-    source: { kind: 'plugin', plugin: 'legion', form: 'relay' },
+    source: { kind: 'legion', form: 'relay' },
   }))
 }
 
@@ -97,21 +96,20 @@ function teamView(teams, agent) {
  * @param {object} ctx - the host context.
  * @param {object} [config] - the validated patch-row configuration.
  */
-export function apply(ctx, config = {}) {
-  // The row is the section's base layer; the settings document overrides it.
-  const entry = clampSettings(Config(config))
-  let source = () => entry
+function plainConfig(value) {
+  if (value !== null && typeof value === 'object' && typeof value.get === 'function') return value.get()
+  return value
+}
 
-  ctx.inject(['settings'], (scope) => {
-    scope.settings.installSection(ctx, LEGION_SETTINGS_NAMESPACE, LEGION_SETTINGS_SCHEMA, entry, {
-      setSource: (current) => {
-        source = current
-      },
-      // Nothing is derived ahead of a command: every verb reads `source()` when it runs,
-      // so a committed change applies to the very next command with no re-judging.
-      onChange: () => {},
-    })
-  })
+function liveConfig(config) {
+  const plain = {}
+  for (const [key, value] of Object.entries(config)) plain[key] = plainConfig(value)
+  return plain
+}
+
+export function apply(ctx, config = {}) {
+  // Volatile fields update this object in place. Read it when the command runs.
+  const source = () => clampSettings(liveConfig(config))
 
   ctx.effect(() => {
     const dispose = ctx.commands.register({
