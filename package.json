@@ -1,6 +1,6 @@
 {
   "name": "dsh-legion",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "main": "index.js",
@@ -50,17 +50,9 @@
   "peerDependencies": {
     "@deepseek-ai/dsh-client-ui-renderer": "*",
     "@deepseek-ai/dsh-client-ui-settings": "*",
-    "@deepseek-ai/dsh-client-ui-settings-plugins": "*",
-    "@deepseek-ai/dsh-llm": "*",
-    "@deepseek-ai/schemastery": "*"
+    "@deepseek-ai/dsh-client-ui-settings-plugins": "*"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/dsh-llm": {
-      "optional": true
-    },
-    "@deepseek-ai/schemastery": {
-      "optional": true
-    },
     "@deepseek-ai/dsh-client-ui-renderer": {
       "optional": true
     },
@@ -76,8 +68,12 @@
     "url": "https://github.com/maci0/dsh-legion.git"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-llm": "0.1.6-alpha.1",
+    "@deepseek-ai/dsh-llm": "~0.1.7-rc.2",
     "@deepseek-ai/schemastery": "^3.18.4"
   },
-  "icon": "./icon.svg"
+  "icon": "./icon.svg",
+  "dependencies": {
+    "@deepseek-ai/dsh-llm": "~0.1.7-rc.2",
+    "@deepseek-ai/schemastery": "^3.18.4"
+  }
 }
