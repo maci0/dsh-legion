@@ -96,7 +96,19 @@ empty state instead.
 row automatically. For local development: `--patch cordis.local.yml`.
 
 Requires Agent Teams (`ctx.agentTeams`) — the verbs that touch the roster or
-the board say so instead of failing silently when it is not mounted.
+the board, and the Legion view, say so instead of failing silently when it is
+not mounted. Agent Teams ships as an experimental bundle; enable it in the same
+profile:
+
+```bash
+dsh plugin --profile <name> add @deepseek-ai/dsh-experimental-agent-team-profile
+```
+
+That bundle mounts `agent-team`, `tool-agent-team`, and the Agent Teams Web UI,
+and its own patch disables `tool-subagent`, `tool-subagent-fork`,
+`tool-subagent-list-agents`, and `tool-subagent-control`: the Team tools replace
+direct delegation. Its defaults are `maxMembers: 8` and `maxTasks: 256`. Restart
+the harness after the install.
 
 ## Notes
 

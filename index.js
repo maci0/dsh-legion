@@ -82,7 +82,12 @@ function relay(agent, text, attachments = []) {
  */
 function teamView(teams, agent) {
   if (teams === undefined) {
-    return { ok: false, reason: 'Agent Teams is not mounted in this composition; /legion needs it.' }
+    return {
+      ok: false,
+      reason: 'Agent Teams is not mounted in this composition; /legion needs it. '
+        + 'Enable the experimental bundle: '
+        + 'dsh plugin --profile <name> add @deepseek-ai/dsh-experimental-agent-team-profile',
+    }
   }
   const membership = teams.tryMembership?.(agent)
   if (membership === undefined) {

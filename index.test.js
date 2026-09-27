@@ -275,6 +275,7 @@ test('/legion status renders the team view, or explains its absence', async () =
   const missing = await noTeams.handler(invocation(lead, 'status'))
   assert.equal(missing.kind, 'error')
   assert.match(missing.text, /Agent Teams is not mounted/)
+  assert.match(missing.text, /dsh-experimental-agent-team-profile/, 'the error names the bundle to enable')
 
   const noMembership = mount({ teams: fakeTeams() })
   const stranger = await noMembership.handler(invocation({}, 'status'))
@@ -505,6 +506,7 @@ test('the Legion view renders the tree, and an empty state without one', async (
 
   const absent = JSON.stringify(component({ useProjection: () => undefined }))
   assert.match(absent, /Agent Teams is not mounted/)
+  assert.match(absent, /dsh-experimental-agent-team-profile/, 'the empty state names the bundle to enable')
 
   const empty = JSON.stringify(component({
     useProjection: () => ({ members: [], tasks: [] }),
