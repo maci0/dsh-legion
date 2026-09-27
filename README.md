@@ -27,7 +27,7 @@ carries the decomposition protocol with the current settings inlined:
 
 - split non-atomic tasks into `minSubtasks`-`maxSubtasks` subtasks; fewer than
   `minSubtasks` means the task is a leaf;
-- never decompose past `maxDepth`;
+- never decompose past `maxDepth` (`0` = no cap: split until a task is atomic);
 - `workersPerTask` candidates per leaf, combined by `mergeStrategy`
   (`best` = judge picks the strongest verbatim, `reconcile` = merge strengths);
 - the authoring agent reviews each child result, up to `maxReviewRetries`
@@ -51,7 +51,7 @@ section: the patch row is the base, the settings document overrides it.
 |---|---|---|
 | `minSubtasks` | 2 | Fewer proposals than this ⇒ the task is a leaf |
 | `maxSubtasks` | 4 | Extra proposals are truncated to this |
-| `maxDepth` | 3 | Hard cap on decomposition levels |
+| `maxDepth` | 0 | Hard cap on decomposition levels; `0` = no cap |
 | `workersPerTask` | 1 | Independent candidates per leaf |
 | `mergeStrategy` | `best` | `best` \| `reconcile` |
 | `maxReviewRetries` | 2 | Rework attempts before terminal failure |
@@ -68,6 +68,20 @@ Edit either way:
 
 Changes validate immediately and apply to the next `/legion` run; `/legion
 config` always prints what the next run will actually use.
+
+## The Legion view
+
+A **Legion** tab sits beside Chat and Trajectory in the session. It folds the
+run's task board into the parent/child tree the protocol writes with
+`blocked_by` edges: status glyph, task id, subject, owner, readiness, extra
+blockers, and write-scope overlaps, indented by depth, with the roster above it
+and a `completed · in progress · blocked` count line.
+
+The values come from the session's own `agentTeam` projection, which the
+harness's Agent Teams plugin already publishes — so the tree follows the run
+live (no polling, no RPC, no host-half state) and costs nothing while the tab is
+not selected. Open the lead session of a run; a session with no team shows the
+empty state instead.
 
 ## Install
 
@@ -95,6 +109,7 @@ the board say so instead of failing silently when it is not mounted.
 ## Tests
 
 `npm test` — pure-logic tests (`parseLegion`, `clampSettings`, `buildKickoff`,
-`formatStatus`, `formatConfig`, `relayText`) plus handler tests over a fake
-host context. `npm install` first: the handler tests load the real module and
-need its two dev dependencies.
+`formatStatus`, `formatConfig`, `relayText`), the view's tree fold
+(`buildTaskTree`, loaded from the browser half with a stubbed module loader),
+plus handler tests over a fake host context. `npm install` first: the handler
+tests load the real module and need its two dev dependencies.

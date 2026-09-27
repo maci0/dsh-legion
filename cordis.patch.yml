@@ -14,7 +14,7 @@
       config:
         minSubtasks: 2
         maxSubtasks: 4
-        maxDepth: 3
+        maxDepth: 0
         workersPerTask: 1
         mergeStrategy: best
         maxReviewRetries: 2

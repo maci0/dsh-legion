@@ -52,7 +52,7 @@ test('clampSettings bounds every field and repairs an inverted pair', () => {
   })
   assert.equal(c.minSubtasks, 20)
   assert.equal(c.maxSubtasks, 20, 'max is raised to min when the pair inverts')
-  assert.equal(c.maxDepth, 1)
+  assert.equal(c.maxDepth, 0, '0 is a legal depth value: no cap')
   assert.equal(c.workersPerTask, 1)
   assert.equal(c.mergeStrategy, 'reconcile')
   assert.equal(c.maxReviewRetries, 1)
@@ -91,9 +91,18 @@ test('buildKickoff turns the approval gate and budget off correctly', () => {
   assert.doesNotMatch(text, /wait for the human/)
 })
 
+test('buildKickoff lifts the depth cap at maxDepth 0', () => {
+  const open = buildKickoff('infinite descent', { ...DEFAULTS, maxDepth: 0 })
+  assert.match(open, /depth cap: none/)
+  assert.doesNotMatch(open, /Never decompose past it/)
+
+  const capped = buildKickoff('bounded', { ...DEFAULTS, maxDepth: 1 })
+  assert.match(capped, /depth cap: 1\. Never decompose past it\./)
+})
+
 test('formatConfig reports every setting and the edit path', () => {
   const text = formatConfig(DEFAULTS)
-  assert.match(text, /min subtasks: 2, max subtasks: 4, max depth: 3/)
+  assert.match(text, /min subtasks: 2, max subtasks: 4, max depth: unlimited/)
   assert.match(text, /merge strategy: best/)
   assert.match(text, /approval: required/)
   assert.match(text, /unlimited/)
@@ -332,7 +341,7 @@ test('empty input returns the usage line as an error', async () => {
 test('a settings change applies to the very next command', async () => {
   const mounted = mount()
   const before = await mounted.handler(invocation(fakeAgent(), 'config'))
-  assert.match(before.text, /max depth: 3/)
+  assert.match(before.text, /max depth: unlimited/)
 
   mounted.setSection({ maxDepth: 7, mergeStrategy: 'reconcile' })
   const after = await mounted.handler(invocation(fakeAgent(), 'config'))
@@ -377,4 +386,128 @@ test('formatStatus renders a bounded report in one pass (work counters)', () => 
   assert.equal(rows(huge).length, 40, 'exactly 40 board rows at any size')
   assert.deepEqual(rows(huge), rows(small), 'the same first 40 rows either way')
   assert.equal(huge.split('\n').length, small.split('\n').length + 1, 'overflow adds one summary line')
+})
+
+// --- browser half: the Legion view, loaded from the real client module ---
+
+/** React stub: enough of the surface `lib/client.js` touches to render. */
+const reactStub = {
+  createElement: (type, props, ...children) => ({ type, props, children }),
+  useMemo: (build) => build(),
+}
+
+/** Load `lib/client.js` the way the module system does, once per run. */
+let clientModulePromise
+function clientModule() {
+  clientModulePromise ??= (async () => {
+    let definition
+    globalThis.window = { __ModuleLoader__: { load: (value) => { definition = value } } }
+    await import('./lib/client.js')
+    delete globalThis.window
+    return definition.factory((id) => {
+      if (id === 'react') return reactStub
+      throw new Error(`unexpected require(${id})`)
+    })
+  })()
+  return clientModulePromise
+}
+
+test('the browser half registers the Legion view beside Chat and Trajectory', async () => {
+  const client = await clientModule()
+  const registered = []
+  const scope = {
+    status: 'ready',
+    value: {},
+    user: {},
+    writable: true,
+    subscribe: () => () => {},
+    getSnapshot: () => ({ status: 'ready', value: {}, user: {}, writable: true }),
+  }
+  const ctx = {
+    configForms: { get: () => scope },
+    slots: {
+      inject: (name, register) => { register() },
+      register: (options, component) => {
+        registered.push({ options, component })
+        return () => {}
+      },
+    },
+  }
+  client.apply(ctx)
+
+  assert.deepEqual(client.inject, ['slots', 'configForms'])
+  assert.deepEqual(registered.map((entry) => entry.options.name), ['plugins.row.config', 'conversation.view'])
+  const view = registered[1]
+  assert.equal(view.options.id, 'legion')
+  assert.equal(view.options.order, 20, 'Chat is 0 and Trajectory 10')
+  assert.equal(view.options.label, 'Legion')
+})
+
+test('the Legion view folds the board into a blocked_by tree', async () => {
+  const client = await clientModule()
+  const tree = client.buildTaskTree([
+    { id: 'task-1', subject: 'root', status: 'completed', blockedBy: [] },
+    { id: 'task-2', subject: 'child', status: 'in_progress', blockedBy: ['task-1'], ownerName: 'scribe' },
+    { id: 'task-3', subject: 'leaf', status: 'pending', blockedBy: ['task-2'], ready: false },
+    { id: 'task-4', subject: 'second root', status: 'pending', blockedBy: ['task-99'], ready: true },
+  ])
+  assert.deepEqual(tree.map((node) => node.task.id), ['task-1', 'task-4'], 'a deleted blocker leaves a root')
+  assert.equal(tree[0].depth, 0)
+  assert.equal(tree[0].children[0].task.id, 'task-2')
+  assert.equal(tree[0].children[0].children[0].task.id, 'task-3')
+  assert.equal(tree[0].children[0].children[0].depth, 2)
+  assert.equal(tree[0].cycle, false)
+})
+
+test('buildTaskTree keeps a board loop visible instead of hanging', async () => {
+  const client = await clientModule()
+  const tree = client.buildTaskTree([
+    { id: 'a', subject: 'a', status: 'pending', blockedBy: [] },
+    { id: 'x', subject: 'x', status: 'pending', blockedBy: ['y'] },
+    { id: 'y', subject: 'y', status: 'pending', blockedBy: ['x'] },
+  ])
+  assert.deepEqual(tree.map((node) => node.task.id), ['a', 'x'], 'an unreachable loop is promoted to a root')
+  const looped = tree[1].children[0].children[0]
+  assert.equal(looped.task.id, 'x')
+  assert.equal(looped.cycle, true)
+  assert.equal(looped.children.length, 0)
+})
+
+test('the Legion view renders the tree, and an empty state without one', async () => {
+  const client = await clientModule()
+  const registered = []
+  const ctx = {
+    configForms: { get: () => ({ status: 'ready', value: {}, user: {}, writable: true }) },
+    slots: {
+      inject: (_name, register) => { register() },
+      register: (options, component) => {
+        registered.push({ options, component })
+        return () => {}
+      },
+    },
+  }
+  client.apply(ctx)
+  const { component } = registered[1]
+
+  const live = component({
+    useProjection: () => ({
+      members: [{ id: 's1', name: 'lead', role: 'lead', phase: 'active' }],
+      tasks: [
+        { id: 'task-1', subject: 'root', status: 'completed', blockedBy: [] },
+        { id: 'task-2', subject: 'child', status: 'in_progress', blockedBy: ['task-1'], ownerName: 'scribe' },
+      ],
+    }),
+  })
+  const rendered = JSON.stringify(live)
+  assert.match(rendered, /Legion decomposition — 2 task\(s\), 2 level\(s\)/)
+  assert.match(rendered, /1 completed · 1 in progress/)
+  assert.match(rendered, /"@scribe"/)
+
+  const absent = JSON.stringify(component({ useProjection: () => undefined }))
+  assert.match(absent, /Agent Teams is not mounted/)
+
+  const empty = JSON.stringify(component({
+    useProjection: () => ({ members: [], tasks: [] }),
+  }))
+  assert.match(empty, /No legion run in this session/)
 })

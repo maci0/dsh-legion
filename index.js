@@ -46,7 +46,7 @@ export const inject = ['commands']
 export const Config = z.object({
   minSubtasks: z.number().step(1).min(1).max(20).default(DEFAULTS.minSubtasks).volatile(),
   maxSubtasks: z.number().step(1).min(1).max(20).default(DEFAULTS.maxSubtasks).volatile(),
-  maxDepth: z.number().step(1).min(1).max(20).default(DEFAULTS.maxDepth).volatile(),
+  maxDepth: z.number().step(1).min(0).max(20).default(DEFAULTS.maxDepth).volatile(),
   workersPerTask: z.number().step(1).min(1).max(16).default(DEFAULTS.workersPerTask).volatile(),
   mergeStrategy: z.union(['best', 'reconcile']).default(DEFAULTS.mergeStrategy).volatile(),
   maxReviewRetries: z.number().step(1).min(0).max(20).default(DEFAULTS.maxReviewRetries).volatile(),
@@ -156,7 +156,7 @@ function legionHandler(invocation, ctx, source) {
       const c = clampSettings(source())
       return Promise.resolve({
         kind: 'success',
-        text: `Legion run started: "${parsed.task}" — up to ${c.maxDepth} level(s) deep, `
+        text: `Legion run started: "${parsed.task}" — ${c.maxDepth === 0 ? 'no depth cap' : `up to ${c.maxDepth} level(s) deep`}, `
           + `${c.minSubtasks}-${c.maxSubtasks} subtasks per split, ${c.workersPerTask} worker(s) per leaf, `
           + `human root approval ${c.requireHumanApproval ? 'required' : 'off'}. Track it with /legion status.`,
       })
