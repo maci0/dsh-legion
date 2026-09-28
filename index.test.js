@@ -81,6 +81,7 @@ test('buildKickoff carries the task and every knob', () => {
   assert.match(text, /at most 1 rework attempt/)
   assert.match(text, /[Hh]uman root approval: required/)
   assert.match(text, /budget for this run: 40 task\(s\)/)
+  assert.match(text, /spawn one teammate per ready leaf/)
   assert.match(text, /team_task_create/)
 })
 
@@ -395,6 +396,7 @@ test('formatStatus renders a bounded report in one pass (work counters)', () => 
 const reactStub = {
   createElement: (type, props, ...children) => ({ type, props, children }),
   useMemo: (build) => build(),
+  useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
 }
 
 /** Load `lib/client.js` the way the module system does, once per run. */
@@ -503,6 +505,9 @@ test('the Legion view renders the tree, and an empty state without one', async (
   assert.match(rendered, /Legion decomposition — 2 task\(s\), 2 level\(s\)/)
   assert.match(rendered, /1 completed · 1 in progress/)
   assert.match(rendered, /"@scribe"/)
+  assert.match(rendered, /lgv-node-completed/, 'the node card carries its status class')
+  assert.match(rendered, /lgv-twisty/, 'a parent offers collapse')
+  assert.match(rendered, /lgv-legend/)
 
   const absent = JSON.stringify(component({ useProjection: () => undefined }))
   assert.match(absent, /Agent Teams is not mounted/)

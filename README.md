@@ -71,11 +71,17 @@ config` always prints what the next run will actually use.
 
 ## The Legion view
 
-A **Legion** tab sits beside Chat and Trajectory in the session. It folds the
-run's task board into the parent/child tree the protocol writes with
-`blocked_by` edges: status glyph, task id, subject, owner, readiness, extra
-blockers, and write-scope overlaps, indented by depth, with the roster above it
-and a `completed · in progress · blocked` count line.
+A **Legion** tab sits beside Chat and Trajectory in the session. It draws the
+run's task board as a hierarchy: one round-rect node card per task on a border
+colored by status (completed, in progress, pending), joined by tree rails, each
+carrying the task id, subject, owner, readiness, extra blockers, and write-scope
+overlaps. Branches collapse from their own twisty, a legend names the statuses,
+and the header counts tasks, levels, and members. That is spydr's graph language
+in the harness's own CSS: no canvas, no graph library, no extra dependency.
+
+The roster ceiling is Agent Teams' `maxMembers`, not this plugin's; raise it in
+the same profile patch (the bundled default is 8, i.e. the lead plus 7
+teammates) so a wide decomposition can keep every ready leaf in flight.
 
 The values come from the session's own `agentTeam` projection, which the
 harness's Agent Teams plugin already publishes — so the tree follows the run
