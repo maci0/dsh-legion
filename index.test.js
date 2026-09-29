@@ -476,6 +476,39 @@ test('buildTaskTree keeps a board loop visible instead of hanging', async () => 
   assert.equal(looped.children.length, 0)
 })
 
+test('the Legion view counts only genuinely blocked pending tasks', async () => {
+  // Regression: the summary counted every pending task with a `blockedBy`
+  // entry as blocked, including a task whose blockers are already completed —
+  // which the same node card draws as `ready`.
+  const client = await clientModule()
+  const registered = []
+  const ctx = {
+    configForms: { get: () => ({ status: 'ready', value: {}, user: {}, writable: true }) },
+    slots: {
+      inject: (_name, register) => { register() },
+      register: (options, component) => {
+        registered.push({ options, component })
+        return () => {}
+      },
+    },
+  }
+  client.apply(ctx)
+  const { component } = registered[1]
+
+  const rendered = JSON.stringify(component({
+    useProjection: () => ({
+      members: [],
+      tasks: [
+        { id: 'task-1', subject: 'root', status: 'completed', blockedBy: [] },
+        { id: 'task-2', subject: 'ready', status: 'pending', blockedBy: ['task-1'], ready: true },
+        { id: 'task-3', subject: 'waiting', status: 'pending', blockedBy: ['task-4'], ready: false },
+        { id: 'task-4', subject: 'running', status: 'in_progress', blockedBy: ['task-1'], ready: false },
+      ],
+    }),
+  }))
+  assert.match(rendered, /1 completed · 1 in progress · 1 blocked · 0 member\(s\)/)
+})
+
 test('the Legion view renders the tree, and an empty state without one', async () => {
   const client = await clientModule()
   const registered = []
