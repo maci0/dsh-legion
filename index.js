@@ -1,5 +1,5 @@
 /**
- * dsh-legion — spydr-style recursive task decomposition for DeepSeek Harness.
+ * dsh-legion: spydr-style recursive task decomposition for DeepSeek Harness.
  *
  * One `/legion` command with a verb grammar, backed by the harness's native
  * Agent Teams instead of a private scheduler:
@@ -172,7 +172,7 @@ function legionHandler(invocation, ctx, source) {
       const c = clampSettings(source())
       return Promise.resolve({
         kind: 'success',
-        text: `Legion run started: "${parsed.task}" — ${c.maxDepth === 0 ? 'no depth cap' : `up to ${c.maxDepth} level(s) deep`}, `
+        text: `Legion run started: "${parsed.task}". Settings: ${c.maxDepth === 0 ? 'no depth cap' : `up to ${c.maxDepth} level(s) deep`}, `
           + `${c.minSubtasks}-${c.maxSubtasks} subtasks per split, ${c.workersPerTask} worker(s) per leaf, `
           + `human root approval ${c.requireHumanApproval ? 'required' : 'off'}. Track it with /legion status.`,
       })
