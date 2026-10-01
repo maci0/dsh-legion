@@ -211,12 +211,12 @@ function fakeTeams(overrides = {}) {
     tryMembership: (agent) => agent.membership,
     listMembers: () => [
       { name: 'lead', role: 'lead', status: 'running' },
-      { name: 'worker', role: 'teammate', status: 'idle' },
+      { name: 'worker', role: 'teammate', status: 'inactive' },
     ],
     listTasks: () => [
       { id: 'task-1', status: 'pending', subject: 'spec', blockedBy: [], ready: true },
     ],
-    interrupt: () => ({ previousStatus: 'idle' }),
+    interrupt: () => ({ previousStatus: 'running' }),
     ...overrides,
   }
 }
@@ -289,7 +289,7 @@ test('/legion stop interrupts every teammate, lead only', async () => {
   const teams = fakeTeams({
     interrupt: (_agent, name) => {
       interrupted.push(name)
-      return { previousStatus: 'idle' }
+      return { previousStatus: 'running' }
     },
   })
   const { handler } = mount({ teams })
@@ -297,13 +297,32 @@ test('/legion stop interrupts every teammate, lead only', async () => {
   const result = await handler(invocation(lead, 'stop'))
   assert.equal(result.kind, 'success')
   assert.deepEqual(interrupted, ['worker'])
-  assert.match(result.text, /Stopped 1 teammate/)
+  assert.match(result.text, /Stopped 1 running teammate/)
 
   const teammate = { ...fakeAgent(), membership: { role: 'teammate' } }
   const denied = await handler(invocation(teammate, 'stop'))
   assert.equal(denied.kind, 'error')
   assert.match(denied.text, /Only the Team Lead/)
   assert.equal(interrupted.length, 1, 'the denied stop interrupted nobody')
+})
+
+// AgentTeams.interrupt reports the target's status sampled before the cancel:
+// an `inactive` teammate had no turn to stop, so it is not counted as stopped.
+test('/legion stop counts only teammates that had a running turn', async () => {
+  const teams = fakeTeams({
+    listMembers: () => [
+      { name: 'lead', role: 'lead', status: 'running' },
+      { name: 'busy', role: 'teammate', status: 'running' },
+      { name: 'idle', role: 'teammate', status: 'inactive' },
+    ],
+    interrupt: (_agent, name) => ({ previousStatus: name === 'busy' ? 'running' : 'inactive' }),
+  })
+  const { handler } = mount({ teams })
+  const lead = { ...fakeAgent(), membership: { role: 'lead' } }
+  const result = await handler(invocation(lead, 'stop'))
+  assert.equal(result.kind, 'success')
+  assert.match(result.text, /Stopped 1 running teammate\(s\)/)
+  assert.match(result.text, /1 already idle/)
 })
 
 test('/legion approve and reject relay to the lead', async () => {

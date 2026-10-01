@@ -183,11 +183,14 @@ function legionHandler(invocation, ctx, source) {
         return Promise.resolve({ kind: 'error', text: 'Only the Team Lead can stop a legion run.' })
       }
       let interrupted = 0
+      let idle = 0
       for (const member of view.members) {
         if (member.role === 'teammate') {
           try {
-            teams.interrupt(agent, member.name)
-            interrupted += 1
+            // `previousStatus` is sampled before the cancel: an inactive
+            // teammate had no turn to stop.
+            if (teams.interrupt(agent, member.name).previousStatus === 'running') interrupted += 1
+            else idle += 1
           } catch {
             // A teammate that settled between the roster read and the interrupt
             // needs no report: the run is being stopped either way.
@@ -197,7 +200,8 @@ function legionHandler(invocation, ctx, source) {
       relay(agent, relayText('stop'))
       return Promise.resolve({
         kind: 'success',
-        text: `Stopped ${interrupted} teammate(s); the lead was told to halt and summarize.`,
+        text: `Stopped ${interrupted} running teammate(s)${idle > 0 ? `, ${idle} already idle` : ''}; `
+          + 'the lead was told to halt and summarize.',
       })
     }
 
