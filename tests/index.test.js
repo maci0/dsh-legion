@@ -165,17 +165,12 @@ const { apply } = await import('../index.js')
 /**
  * Mount the plugin against a fake ctx and return the registered command.
  * @param {object} [options] - `teams` service to expose via ctx.get.
- * @returns {{handler: Function, setSourceValue: (v: object) => void}}
+ * @returns {{handler: Function, definition: object, setSection: (v: object) => void}}
  */
 function mount({ teams } = {}) {
   let registered
   const config = {}
   const ctx = {
-    // Real cordis runs an inject callback only when the service is present,
-    // so the fake provides `settings` and skips anything it does not carry.
-    inject: (deps, cb) => {
-      if (deps.every((dep) => ctx[dep] !== undefined)) cb(ctx)
-    },
     effect: (fn) => fn(),
     commands: {
       register: (definition) => {

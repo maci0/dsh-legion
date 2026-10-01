@@ -33,14 +33,14 @@ import {
 
 export const name = 'legion'
 
-// `commands` registers the verb grammar; `settings` and `agentTeams` are
-// optional services reached through ctx.get, so a headless or team-less
-// composition still mounts the command and degrades per verb.
+// `commands` registers the verb grammar; `agentTeams` is an optional service
+// reached through ctx.get, so a team-less composition still mounts the
+// command and degrades per verb.
 export const inject = ['commands']
 
 /**
- * Row schema. v0.1.7 reads settings from this Config, not a side document.
- * `.volatile()` lets a profile edit land without remounting the plugin.
+ * Row schema; the Plugins-page card edits this shape. `.volatile()` lets a
+ * profile edit land without remounting the plugin.
  */
 export const Config = z.object({
   minSubtasks: z.number().step(1).min(1).max(20).default(DEFAULTS.minSubtasks).volatile(),
@@ -52,12 +52,6 @@ export const Config = z.object({
   requireHumanApproval: z.boolean().default(DEFAULTS.requireHumanApproval).volatile(),
   maxTasksPerRun: z.number().step(1).min(0).max(10000).default(DEFAULTS.maxTasksPerRun).volatile(),
 })
-
-/** Settings namespace shared with the browser card — the join key between halves. */
-export const LEGION_SETTINGS_NAMESPACE = 'legion'
-
-/** Schema of the `legion` settings section (the card edits this shape). */
-export const LEGION_SETTINGS_SCHEMA = Config
 
 /**
  * Queue one relay message as the agent's next turn.
