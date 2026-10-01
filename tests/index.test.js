@@ -661,7 +661,7 @@ test('the Legion card reports a settings write the host refuses', async () => {
     status: 'ready',
     value: { minSubtasks: 2, maxSubtasks: 4, maxDepth: 0, workersPerTask: 1, mergeStrategy: 'best',
       maxReviewRetries: 2, requireHumanApproval: true, maxTasksPerRun: 0 },
-    user: { maxDepth: 3 },
+    user: { maxDepth: 3, minSubtasks: 10 },
     writable: true,
   }
   const refuse = (op) => (...args) => { writes.push([op, ...args]); return Promise.resolve(false) }
@@ -695,7 +695,10 @@ test('the Legion card reports a settings write the host refuses', async () => {
 
   render().find((node) => node.type === 'button' && /^Reset/.test(textOfNode(node))).props.onClick()
   await settle()
-  assert.deepEqual(writes.at(-1), ['unset', 'maxDepth'])
+  assert.deepEqual(writes.at(-1), ['mutate', [
+    { op: 'unset', path: ['maxDepth'] }, { op: 'unset', path: ['minSubtasks'] },
+  ]])
+  assert.equal(writes.length, 2, 'Reset makes one namespace mutation')
   assert.match(textOfNode(render()), /refused the change/, 'a refused reset is reported too')
 })
 
