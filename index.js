@@ -66,6 +66,11 @@ function relay(agent, text, attachments = []) {
   }))
 }
 
+/** Error for a verb that needs Agent Teams when the service is not mounted. */
+const NO_TEAMS = 'Agent Teams is not mounted in this composition; /legion needs it. '
+  + 'Enable the experimental bundle: '
+  + 'dsh plugin --profile <name> add @deepseek-ai/dsh-experimental-agent-team-profile'
+
 /**
  * Resolve the team service's view for one agent, or the reason there is none.
  * @param {object|undefined} teams - `ctx.agentTeams`, when mounted.
@@ -74,14 +79,7 @@ function relay(agent, text, attachments = []) {
  *           {ok: false, reason: string}}
  */
 function teamView(teams, agent) {
-  if (teams === undefined) {
-    return {
-      ok: false,
-      reason: 'Agent Teams is not mounted in this composition; /legion needs it. '
-        + 'Enable the experimental bundle: '
-        + 'dsh plugin --profile <name> add @deepseek-ai/dsh-experimental-agent-team-profile',
-    }
-  }
+  if (teams === undefined) return { ok: false, reason: NO_TEAMS }
   const membership = teams.tryMembership?.(agent)
   if (membership === undefined) {
     return { ok: false, reason: 'This session is not part of a team. Start a run with /legion <task>.' }
@@ -90,14 +88,13 @@ function teamView(teams, agent) {
 }
 
 /**
- * Resolve the Team Lead a root-approval verdict goes to. Without Agent Teams
- * there is no roster, so the session that ran the kickoff is the lead.
+ * Resolve the Team Lead a root-approval verdict goes to.
  * @param {object|undefined} teams - `ctx.agentTeams`, when mounted.
  * @param {object} agent - the command's receiving agent.
  * @returns {{ok: true, agent: object} | {ok: false, reason: string}}
  */
 function leadOf(teams, agent) {
-  if (teams === undefined) return { ok: true, agent }
+  if (teams === undefined) return { ok: false, reason: NO_TEAMS }
   const membership = teams.tryMembership?.(agent)
   if (membership === undefined) {
     return { ok: false, reason: 'This session is not part of a team. Start a run with /legion <task>.' }
@@ -168,6 +165,9 @@ function legionHandler(invocation, ctx, source) {
       return Promise.resolve({ kind: 'error', text: parsed.text })
 
     case 'start': {
+      // The run lives on the team board; without it the kickoff would name
+      // tools the model does not have.
+      if (teams === undefined) return Promise.resolve({ kind: 'error', text: NO_TEAMS })
       relay(agent, buildKickoff(parsed.task, source()), invocation.attachments ?? [])
       const c = clampSettings(source())
       return Promise.resolve({
