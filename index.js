@@ -96,21 +96,39 @@ function teamView(teams, agent) {
 }
 
 /**
- * Mount the plugin.
- * @param {object} ctx - the host context.
- * @param {object} [config] - the validated patch-row configuration.
+ * Resolve the Team Lead a root-approval verdict goes to. Without Agent Teams
+ * there is no roster, so the session that ran the kickoff is the lead.
+ * @param {object|undefined} teams - `ctx.agentTeams`, when mounted.
+ * @param {object} agent - the command's receiving agent.
+ * @returns {{ok: true, agent: object} | {ok: false, reason: string}}
  */
+function leadOf(teams, agent) {
+  if (teams === undefined) return { ok: true, agent }
+  const membership = teams.tryMembership?.(agent)
+  if (membership === undefined) {
+    return { ok: false, reason: 'This session is not part of a team. Start a run with /legion <task>.' }
+  }
+  return { ok: true, agent: membership.root }
+}
+
+/** Unwrap a volatile config ref (anything with `get()`) to its current value. */
 function plainConfig(value) {
   if (value !== null && typeof value === 'object' && typeof value.get === 'function') return value.get()
   return value
 }
 
+/** Snapshot every row field, unwrapping volatile refs. */
 function liveConfig(config) {
   const plain = {}
   for (const [key, value] of Object.entries(config)) plain[key] = plainConfig(value)
   return plain
 }
 
+/**
+ * Mount the plugin.
+ * @param {object} ctx - the host context.
+ * @param {object} [config] - the validated patch-row configuration.
+ */
 export function apply(ctx, config = {}) {
   // Volatile fields update this object in place. Read it when the command runs.
   const source = () => clampSettings(liveConfig(config))
@@ -205,21 +223,27 @@ function legionHandler(invocation, ctx, source) {
       })
     }
 
-    case 'approve':
-      relay(agent, relayText('approve', parsed.note))
+    case 'approve': {
+      const lead = leadOf(teams, agent)
+      if (!lead.ok) return Promise.resolve({ kind: 'error', text: lead.reason })
+      relay(lead.agent, relayText('approve', parsed.note))
       return Promise.resolve({
         kind: 'success',
         text: parsed.note
           ? `Approval relayed to the lead with your note: "${parsed.note}".`
           : 'Approval relayed to the lead; the run closes.',
       })
+    }
 
-    case 'reject':
-      relay(agent, relayText('reject', parsed.reason))
+    case 'reject': {
+      const lead = leadOf(teams, agent)
+      if (!lead.ok) return Promise.resolve({ kind: 'error', text: lead.reason })
+      relay(lead.agent, relayText('reject', parsed.reason))
       return Promise.resolve({
         kind: 'success',
         text: `Rejection relayed to the lead: "${parsed.reason}". The deliverable goes back for rework.`,
       })
+    }
 
     default:
       return Promise.resolve({ kind: 'error', text: USAGE })

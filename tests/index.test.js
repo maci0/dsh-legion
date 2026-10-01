@@ -344,6 +344,31 @@ test('/legion approve and reject relay to the lead', async () => {
   assert.equal(lead.queued.length, 2, 'the bad reject queued nothing')
 })
 
+// The Legion view and teammate sessions are open in the same UI, so a verdict
+// typed in a teammate's session must still reach the Team Lead
+// (TeamMembership.root), not the teammate.
+test('/legion approve and reject from a teammate session reach the lead', async () => {
+  const lead = { ...fakeAgent(), membership: { role: 'lead' } }
+  lead.membership.root = lead
+  const teammate = { ...fakeAgent(), membership: { role: 'teammate', root: lead } }
+  const { handler } = mount({ teams: fakeTeams() })
+
+  const approved = await handler(invocation(teammate, 'approve'))
+  assert.equal(approved.kind, 'success')
+  const rejected = await handler(invocation(teammate, 'reject needs tests'))
+  assert.equal(rejected.kind, 'success')
+  assert.equal(teammate.queued.length, 0, 'the verdict went to the teammate')
+  assert.equal(lead.queued.length, 2)
+  assert.match(lead.queued[0].content[0].text, /approved the root deliverable/)
+  assert.match(lead.queued[1].content[0].text, /rejected the root deliverable: needs tests/)
+
+  const outsider = fakeAgent()
+  const refused = await handler(invocation(outsider, 'approve'))
+  assert.equal(refused.kind, 'error')
+  assert.match(refused.text, /not part of a team/)
+  assert.equal(outsider.queued.length, 0)
+})
+
 test('/legion config prints the effective settings', async () => {
   const { handler } = mount()
   const result = await handler(invocation(fakeAgent(), 'config'))
