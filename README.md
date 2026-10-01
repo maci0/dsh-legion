@@ -126,7 +126,7 @@ the harness after the install.
 
 ## Tests
 
-`npm test` — pure-logic tests (`parseLegion`, `clampSettings`, `buildKickoff`,
+`npm test` (`node --test tests/*.test.js`): pure-logic tests (`parseLegion`, `clampSettings`, `buildKickoff`,
 `formatStatus`, `formatConfig`, `relayText`), the view's tree fold
 (`buildTaskTree`, loaded from the browser half with a stubbed module loader),
 plus handler tests over a fake host context. `npm install` first: the handler

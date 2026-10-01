@@ -9,7 +9,7 @@ import {
   formatStatus,
   parseLegion,
   relayText,
-} from './lib/logic.js'
+} from '../lib/logic.js'
 
 test('parseLegion reads the documented forms', () => {
   assert.deepEqual(parseLegion('status'), { kind: 'status' })
@@ -160,7 +160,7 @@ test('USAGE names every verb', () => {
 
 // --- handler-level tests: the verb grammar through a fake host context ---
 
-const { apply } = await import('./index.js')
+const { apply } = await import('../index.js')
 
 /**
  * Mount the plugin against a fake ctx and return the registered command.
@@ -405,7 +405,7 @@ function clientModule() {
   clientModulePromise ??= (async () => {
     let definition
     globalThis.window = { __ModuleLoader__: { load: (value) => { definition = value } } }
-    await import('./lib/client.js')
+    await import('../lib/client.js')
     delete globalThis.window
     return definition.factory((id) => {
       if (id === 'react') return reactStub
