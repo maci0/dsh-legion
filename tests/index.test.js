@@ -479,6 +479,8 @@ test('the browser half registers the Legion view beside Chat and Trajectory', as
     getSnapshot: () => ({ status: 'ready', value: {}, user: {}, writable: true }),
   }
   const ctx = {
+    effect: (fn) => fn(),
+    locale: localeStub('en'),
     configForms: { get: () => scope },
     slots: {
       inject: (name, register) => { register() },
@@ -490,7 +492,7 @@ test('the browser half registers the Legion view beside Chat and Trajectory', as
   }
   client.apply(ctx)
 
-  assert.deepEqual(client.inject, ['slots', 'configForms'])
+  assert.deepEqual(client.inject, ['slots', 'configForms', 'locale'])
   assert.deepEqual(registered.map((entry) => entry.options.name), ['plugins.row.config', 'conversation.view'])
   const view = registered[1]
   assert.equal(view.options.id, 'legion')
@@ -535,6 +537,8 @@ test('the Legion view counts only genuinely blocked pending tasks', async () => 
   const client = await clientModule()
   const registered = []
   const ctx = {
+    effect: (fn) => fn(),
+    locale: localeStub('en'),
     configForms: { get: () => ({ status: 'ready', value: {}, user: {}, writable: true }) },
     slots: {
       inject: (_name, register) => { register() },
@@ -565,6 +569,8 @@ test('the Legion view renders the tree, and an empty state without one', async (
   const client = await clientModule()
   const registered = []
   const ctx = {
+    effect: (fn) => fn(),
+    locale: localeStub('en'),
     configForms: { get: () => ({ status: 'ready', value: {}, user: {}, writable: true }) },
     slots: {
       inject: (_name, register) => { register() },
@@ -668,6 +674,8 @@ test('the Legion card reports a settings write the host refuses', async () => {
   }
   let Card
   client.apply({
+    effect: (fn) => fn(),
+    locale: localeStub('en'),
     configForms: { get: () => scope },
     slots: {
       inject: (_name, register) => { register() },
@@ -705,4 +713,86 @@ test('without Agent Teams, starting or steering a run is an error that names it'
   }
   assert.equal(agent.queued.length, 0, 'a verb queued a relay without Agent Teams')
   assert.equal((await handler(invocation(agent, 'config'))).kind, 'success', 'config needs no team')
+})
+
+/**
+ * A locale service stub: records the dictionaries the bundle registers and
+ * every key the card asks for, resolving against one active locale.
+ */
+function localeStub(active) {
+  const stub = {
+    registered: [],
+    used: new Set(),
+    register: (ns, dicts) => { stub.registered.push({ ns, dicts }); return () => {} },
+    bind: (ns) => (key, params) => {
+      stub.used.add(key)
+      const dicts = stub.registered.find((entry) => entry.ns === ns)?.dicts
+      const template = dicts?.[active]?.[key] ?? key
+      return params === undefined ? template
+        : template.replace(/\{(\w+)\}/g, (match, name) => (name in params ? String(params[name]) : match))
+    },
+  }
+  return stub
+}
+
+// Every other card in the fleet ships en and zh copy through the locale
+// service. The card's keys are read off real renders (summary, page,
+// read-only, approval off, a refused write), so a string added without a
+// translation fails here.
+test('the Legion card copy comes from en and zh dictionaries covering every key it uses', async () => {
+  const React = statefulReact()
+  const client = await clientWith(React)
+  const locale = localeStub('zh')
+  const snapshot = {
+    status: 'ready',
+    value: { minSubtasks: 2, maxSubtasks: 4, maxDepth: 0, workersPerTask: 1, mergeStrategy: 'best',
+      maxReviewRetries: 2, requireHumanApproval: true, maxTasksPerRun: 0 },
+    user: { maxDepth: 3 },
+    writable: true,
+  }
+  const scope = {
+    subscribe: () => () => {},
+    getSnapshot: () => snapshot,
+    set: () => Promise.resolve(false),
+    unset: () => Promise.resolve(false),
+    mutate: () => Promise.resolve(false),
+  }
+  let Card
+  let entry
+  client.apply({
+    effect: (fn) => fn(),
+    configForms: { get: () => scope },
+    locale,
+    slots: {
+      inject: (_name, register) => { register() },
+      register: (options, component) => {
+        if (options.name === 'plugins.row.config') { Card = component; entry = options }
+        return () => {}
+      },
+    },
+  })
+  assert.ok(client.inject.includes('locale'), 'the bundle injects the locale service')
+  assert.equal(locale.registered.length, 1)
+  const { ns, dicts } = locale.registered[0]
+  assert.equal(entry.locale, ns, 'the card slot names its locale namespace')
+  assert.deepEqual(Object.keys(dicts).sort(), ['en', 'zh'])
+
+  const render = (view) => { React.reset(); return Card({ view }) }
+  render('summary')
+  snapshot.value.maxDepth = 3
+  render('summary')
+  nodesOf(render('page')).find((node) => node.type === 'button' && node.props.role === 'radio').props.onClick()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  const page = textOfNode(nodesOf(render('page')))
+  snapshot.writable = false
+  snapshot.value.requireHumanApproval = false
+  render('page')
+
+  for (const key of locale.used) {
+    assert.equal(typeof dicts.en[key], 'string', `en lacks "${key}"`)
+    assert.equal(typeof dicts.zh[key], 'string', `zh lacks "${key}"`)
+  }
+  assert.deepEqual(Object.keys(dicts.zh).sort(), Object.keys(dicts.en).sort(), 'zh and en carry the same keys')
+  assert.ok(locale.used.has('refused'), 'the refused-write message is localized')
+  assert.ok(page.includes(dicts.zh.refused), 'the active locale renders')
 })

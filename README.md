@@ -73,7 +73,8 @@ Edit either way:
 
 - **Config menu**: Plugins → the `legion` row's **Configure** control: every field with its bounds,
   merge-strategy and approval toggles, overridden-field markers and a one-click
-  Reset, read-only state when the deployment does not persist settings.
+  Reset, read-only state when the deployment does not persist settings. Its copy ships in
+  English and Chinese through the locale service.
 - **Patch row**: a `- id: legion` row in your profile's `cordis.patch.yml`
   (or the `config:` block in this package's `cordis.patch.yml`).
 
@@ -133,6 +134,7 @@ process memory, so a restart cannot strand a run.
   of the team, and are refused from a session outside one.
 - Settings are read when a verb runs, not when the plugin loads: no restart,
   no card reload needed.
+- The Legion view's copy is English only; the settings card is localized.
 
 ## Development
 
