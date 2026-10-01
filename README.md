@@ -1,9 +1,42 @@
 # dsh-legion
 
-Recursive task decomposition for DeepSeek Harness — spydr's workflow on top of
-the harness's native Agent Teams: one root task splits into a tree, leaves run
+Recursive task decomposition for DeepSeek Harness: spydr's workflow on top of
+the harness's native Agent Teams. One root task splits into a tree, leaves run
 as teammates against a shared task board, results consolidate upward, and the
 human gates the root.
+
+## Install
+
+> **Install it as a bundle.** `dsh plugin add …` mounts the row from the
+> package's own patch layer, which is what the settings editor can write to. A
+> row added with `--patch` is an overlay: it disappears at the next start, and
+> the Plugins card cannot save into it (the editor refuses a write an overlay
+> would win).
+
+```sh
+dsh plugin --profile web add github:maci0/dsh-legion#v0.5.0
+```
+
+Pin a release tag: a bare `github:` spec floats on `main`. To upgrade, run the same command with the newer tag, then restart `dsh web` (bundle layers compose at boot).
+
+The bundled `cordis.patch.yml` inserts the `legion` row automatically.
+
+Requires Agent Teams (`ctx.agentTeams`): the verbs that touch the roster or
+the board, and the Legion view, say so instead of failing silently when it is
+not mounted. Agent Teams ships as an experimental bundle; enable it in the same
+profile:
+
+```bash
+dsh plugin --profile <name> add @deepseek-ai/dsh-experimental-agent-team-profile
+```
+
+That bundle mounts `agent-team`, `tool-agent-team`, and the Agent Teams Web UI,
+and its own patch disables `tool-subagent`, `tool-subagent-fork`,
+`tool-subagent-list-agents`, and `tool-subagent-control`: the Team tools replace
+direct delegation. Its defaults are `maxMembers: 8` and `maxTasks: 256`. Restart
+the harness after the install.
+
+## Commands
 
 ```
 /legion refactor the auth layer   # start a run (attachments allowed)
@@ -20,29 +53,7 @@ A verb is matched **whole**: `/legion status page redesign` starts a run whose
 title begins with "status". To start a task that *is* one of the verb words,
 prefix it: `/legion start stop`.
 
-## How it works
-
-`/legion <task>` queues a kickoff relay as the agent's next turn. The relay
-carries the decomposition protocol with the current settings inlined:
-
-- split non-atomic tasks into `minSubtasks`-`maxSubtasks` subtasks; fewer than
-  `minSubtasks` means the task is a leaf;
-- never decompose past `maxDepth` (`0` = no cap: split until a task is atomic);
-- `workersPerTask` candidates per leaf, combined by `mergeStrategy`
-  (`best` = judge picks the strongest verbatim, `reconcile` = merge strengths);
-- the authoring agent reviews each child result, up to `maxReviewRetries`
-  rework attempts before a task fails terminally;
-- `requireHumanApproval` holds the root at an `/legion approve | reject` gate;
-- `maxTasksPerRun` caps how many tasks one run may create (`0` = unlimited).
-
-The tree lives on the shared team task board (`team_task_create` with
-`blocked_by` edges), so flow guarantees are structural: tasks flow top-down
-only, results bottom-up only, and siblings never exchange work — the same
-guarantees spydr enforces in its data model. `status`, `stop`, and the
-approval verbs read and steer that live team state; nothing is kept in
-process memory, so a restart cannot strand a run.
-
-## Configuration
+## Configure
 
 Two layers, same namespace (`legion`), same precedence as every DSH settings
 section: the patch row is the base, the settings document overrides it.
@@ -60,10 +71,10 @@ section: the patch row is the base, the settings document overrides it.
 
 Edit either way:
 
-- **Config menu** — Plugins → the `legion` row's **Configure** control: every field with its bounds,
+- **Config menu**: Plugins → the `legion` row's **Configure** control: every field with its bounds,
   merge-strategy and approval toggles, overridden-field markers and a one-click
   Reset, read-only state when the deployment does not persist settings.
-- **Patch row** — a `- id: legion` row in your profile's `cordis.patch.yml`
+- **Patch row**: a `- id: legion` row in your profile's `cordis.patch.yml`
   (or the `config:` block in this package's `cordis.patch.yml`).
 
 Changes validate immediately and apply to the next `/legion` run; `/legion
@@ -84,50 +95,56 @@ the same profile patch (the bundled default is 8, i.e. the lead plus 7
 teammates) so a wide decomposition can keep every ready leaf in flight.
 
 The values come from the session's own `agentTeam` projection, which the
-harness's Agent Teams plugin already publishes — so the tree follows the run
+harness's Agent Teams plugin already publishes, so the tree follows the run
 live (no polling, no RPC, no host-half state) and costs nothing while the tab is
 not selected. Open the lead session of a run; a session with no team shows the
 empty state instead.
 
-## Install
+## How it works
 
-> **Install it as a bundle.** `dsh plugin add …` mounts the row from the
-> package's own patch layer, which is what the settings editor can write to. A
-> row added with `--patch` is an overlay: it disappears at the next start, and
-> the Plugins card cannot save into it — the editor refuses a write an overlay
-> would win.
+`/legion <task>` queues a kickoff relay as the agent's next turn. The relay
+carries the decomposition protocol with the current settings inlined:
 
-`dsh plugin add dsh-legion`, or add the package to your profile's
-`cordis.patch.yml` bundles. The bundled `cordis.patch.yml` inserts the `legion`
-row automatically. For local development, `dsh plugin --profile <name> add <path-to-checkout>`.
+- split non-atomic tasks into `minSubtasks`-`maxSubtasks` subtasks; fewer than
+  `minSubtasks` means the task is a leaf;
+- never decompose past `maxDepth` (`0` = no cap: split until a task is atomic);
+- `workersPerTask` candidates per leaf, combined by `mergeStrategy`
+  (`best` = judge picks the strongest verbatim, `reconcile` = merge strengths);
+- the authoring agent reviews each child result, up to `maxReviewRetries`
+  rework attempts before a task fails terminally;
+- `requireHumanApproval` holds the root at an `/legion approve | reject` gate;
+- `maxTasksPerRun` caps how many tasks one run may create (`0` = unlimited).
 
-Requires Agent Teams (`ctx.agentTeams`) — the verbs that touch the roster or
-the board, and the Legion view, say so instead of failing silently when it is
-not mounted. Agent Teams ships as an experimental bundle; enable it in the same
-profile:
+The tree lives on the shared team task board (`team_task_create` with
+`blocked_by` edges), so flow guarantees are structural: tasks flow top-down
+only, results bottom-up only, and siblings never exchange work, the same
+guarantees spydr enforces in its data model. `status`, `stop`, and the
+approval verbs read and steer that live team state; nothing is kept in
+process memory, so a restart cannot strand a run.
 
-```bash
-dsh plugin --profile <name> add @deepseek-ai/dsh-experimental-agent-team-profile
-```
-
-That bundle mounts `agent-team`, `tool-agent-team`, and the Agent Teams Web UI,
-and its own patch disables `tool-subagent`, `tool-subagent-fork`,
-`tool-subagent-list-agents`, and `tool-subagent-control`: the Team tools replace
-direct delegation. Its defaults are `maxMembers: 8` and `maxTasks: 256`. Restart
-the harness after the install.
-
-## Notes
+## Limits
 
 - Attachments ride the kickoff only; any other verb with attachments is
   rejected so the composer keeps the originals.
 - `/legion stop` is lead-only, like every roster mutation in the Team domain.
-- Settings are read when a verb runs, not when the plugin loads — no restart,
+  Its reply counts the teammates that had a running turn; idle ones are
+  reported separately.
+- `/legion approve` and `/legion reject` go to the Team Lead from any session
+  of the team, and are refused from a session outside one. Without Agent
+  Teams they go to the session they are typed in.
+- Settings are read when a verb runs, not when the plugin loads: no restart,
   no card reload needed.
 
-## Tests
+## Development
 
 `npm test` (`node --test tests/*.test.js`): pure-logic tests (`parseLegion`, `clampSettings`, `buildKickoff`,
 `formatStatus`, `formatConfig`, `relayText`), the view's tree fold
 (`buildTaskTree`, loaded from the browser half with a stubbed module loader),
-plus handler tests over a fake host context. `npm install` first: the handler
-tests load the real module and need its two dev dependencies.
+handler tests over a fake host context, and a real Cordis composition. `npm install` first: the handler
+and composition tests load the real module and need the dev dependencies.
+
+For local development, `dsh plugin --profile <name> add <path-to-checkout>`.
+
+## Licence
+
+MIT. See `LICENSE`.
