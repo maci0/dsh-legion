@@ -126,9 +126,9 @@ test('formatStatus renders roster, counts, owners, and blockers', () => {
   assert.match(text, /2 member\(s\), 4 task\(s\)/)
   assert.match(text, /lead \(lead, running\), scribe \(teammate, idle\)/)
   assert.match(text, /1 completed, 1 in progress, 2 pending \(1 ready\)/)
-  assert.match(text, /task-2 \[in progress\] core — owner scribe/)
-  assert.match(text, /task-3 \[pending\] docs — blocked by task-2/)
-  assert.match(text, /task-4 \[pending\] polish — ready/)
+  assert.match(text, /task-2 \[in progress\] core, owner scribe/)
+  assert.match(text, /task-3 \[pending\] docs, blocked by task-2/)
+  assert.match(text, /task-4 \[pending\] polish, ready/)
 })
 
 test('formatStatus caps a runaway board at 40 lines', () => {
@@ -265,7 +265,7 @@ test('/legion status renders the team view, or explains its absence', async () =
   const ok = await withTeams.handler(invocation(lead, 'status'))
   assert.equal(ok.kind, 'success')
   assert.match(ok.text, /2 member\(s\), 1 task\(s\)/)
-  assert.match(ok.text, /task-1 \[pending\] spec — ready/)
+  assert.match(ok.text, /task-1 \[pending\] spec, ready/)
 
   const noTeams = mount()
   const missing = await noTeams.handler(invocation(lead, 'status'))
@@ -517,7 +517,7 @@ test('buildTaskTree keeps a board loop visible instead of hanging', async () => 
 
 test('the Legion view counts only genuinely blocked pending tasks', async () => {
   // Regression: the summary counted every pending task with a `blockedBy`
-  // entry as blocked, including a task whose blockers are already completed —
+  // entry as blocked, including a task whose blockers are already completed,
   // which the same node card draws as `ready`.
   const client = await clientModule()
   const registered = []
@@ -574,7 +574,7 @@ test('the Legion view renders the tree, and an empty state without one', async (
     }),
   })
   const rendered = JSON.stringify(live)
-  assert.match(rendered, /Legion decomposition — 2 task\(s\), 2 level\(s\)/)
+  assert.match(rendered, /Legion decomposition: 2 task\(s\), 2 level\(s\)/)
   assert.match(rendered, /1 completed · 1 in progress/)
   assert.match(rendered, /"@scribe"/)
   assert.match(rendered, /lgv-node-completed/, 'the node card carries its status class')
