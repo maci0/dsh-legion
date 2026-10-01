@@ -21,9 +21,9 @@ Pin a release tag: a bare `github:` spec floats on `main`. To upgrade, run the s
 
 The bundled `cordis.patch.yml` inserts the `legion` row automatically.
 
-Requires Agent Teams (`ctx.agentTeams`): the verbs that touch the roster or
-the board, and the Legion view, say so instead of failing silently when it is
-not mounted. Agent Teams ships as an experimental bundle; enable it in the same
+Requires Agent Teams (`ctx.agentTeams`). When it is not mounted, every verb but
+`config` answers an error naming the bundle to enable and queues nothing, and
+the Legion view says the same. Agent Teams ships as an experimental bundle; enable it in the same
 profile:
 
 ```bash
@@ -130,8 +130,7 @@ process memory, so a restart cannot strand a run.
   Its reply counts the teammates that had a running turn; idle ones are
   reported separately.
 - `/legion approve` and `/legion reject` go to the Team Lead from any session
-  of the team, and are refused from a session outside one. Without Agent
-  Teams they go to the session they are typed in.
+  of the team, and are refused from a session outside one.
 - Settings are read when a verb runs, not when the plugin loads: no restart,
   no card reload needed.
 

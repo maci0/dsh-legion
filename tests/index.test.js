@@ -233,7 +233,7 @@ test('apply registers the legion command with its grammar', () => {
 })
 
 test('/legion start queues a kickoff relay carrying the task', async () => {
-  const { handler } = mount()
+  const { handler } = mount({ teams: fakeTeams() })
   const agent = fakeAgent()
   const result = await handler(invocation(agent, 'ship the v2 API'))
   assert.equal(result.kind, 'success')
@@ -246,7 +246,7 @@ test('/legion start queues a kickoff relay carrying the task', async () => {
 })
 
 test('attachments ride a starting run and are rejected elsewhere', async () => {
-  const { handler } = mount()
+  const { handler } = mount({ teams: fakeTeams() })
   const agent = fakeAgent()
   const file = { type: 'file', fileId: 'f1' }
   const start = await handler(invocation(agent, 'read this spec', [file]))
@@ -321,8 +321,9 @@ test('/legion stop counts only teammates that had a running turn', async () => {
 })
 
 test('/legion approve and reject relay to the lead', async () => {
-  const { handler } = mount()
+  const { handler } = mount({ teams: fakeTeams() })
   const lead = fakeAgent()
+  lead.membership = { role: 'lead', root: lead }
 
   const approved = await handler(invocation(lead, 'approve ship it'))
   assert.equal(approved.kind, 'success')
@@ -380,7 +381,7 @@ test('empty input returns the usage line as an error', async () => {
 })
 
 test('a settings change applies to the very next command', async () => {
-  const mounted = mount()
+  const mounted = mount({ teams: fakeTeams() })
   const before = await mounted.handler(invocation(fakeAgent(), 'config'))
   assert.match(before.text, /max depth: unlimited/)
 
@@ -688,4 +689,20 @@ test('the Legion card reports a settings write the host refuses', async () => {
   await settle()
   assert.deepEqual(writes.at(-1), ['unset', 'maxDepth'])
   assert.match(textOfNode(render()), /refused the change/, 'a refused reset is reported too')
+})
+
+// A run lives on the Agent Teams board: without the service the kickoff names
+// tools the model does not have, so every verb that starts or steers a run
+// fails loud, names the missing service, and queues nothing.
+test('without Agent Teams, starting or steering a run is an error that names it', async () => {
+  const { handler } = mount()
+  const agent = fakeAgent()
+  for (const line of ['ship the v2 API', 'start status page', 'approve', 'reject wrong endpoint']) {
+    const result = await handler(invocation(agent, line))
+    assert.equal(result.kind, 'error', `/legion ${line} succeeded without Agent Teams`)
+    assert.match(result.text, /Agent Teams is not mounted/)
+    assert.match(result.text, /dsh-experimental-agent-team-profile/)
+  }
+  assert.equal(agent.queued.length, 0, 'a verb queued a relay without Agent Teams')
+  assert.equal((await handler(invocation(agent, 'config'))).kind, 'success', 'config needs no team')
 })
