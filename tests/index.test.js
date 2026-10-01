@@ -438,19 +438,31 @@ const reactStub = {
   useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
 }
 
-/** Load `lib/client.js` the way the module system does, once per run. */
-let clientModulePromise
-function clientModule() {
-  clientModulePromise ??= (async () => {
+/** Import `lib/client.js` once, capturing what it registers on the module loader. */
+let definitionPromise
+function clientDefinition() {
+  definitionPromise ??= (async () => {
     let definition
     globalThis.window = { __ModuleLoader__: { load: (value) => { definition = value } } }
     await import('../lib/client.js')
     delete globalThis.window
-    return definition.factory((id) => {
-      if (id === 'react') return reactStub
-      throw new Error(`unexpected require(${id})`)
-    })
+    return definition
   })()
+  return definitionPromise
+}
+
+/** Run the captured factory against one React implementation. */
+async function clientWith(react) {
+  return (await clientDefinition()).factory((id) => {
+    if (id === 'react') return react
+    throw new Error(`unexpected require(${id})`)
+  })
+}
+
+/** The bundle over the stateless stub, built once per run. */
+let clientModulePromise
+function clientModule() {
+  clientModulePromise ??= clientWith(reactStub)
   return clientModulePromise
 }
 
@@ -589,4 +601,91 @@ test('the Legion view renders the tree, and an empty state without one', async (
     useProjection: () => ({ members: [], tasks: [] }),
   }))
   assert.match(empty, /No legion run in this session/)
+})
+
+/**
+ * Stateful React stub for the settings card: hook slots survive re-render,
+ * so a state set from a settled write shows on the next render.
+ */
+function statefulReact() {
+  const slots = []
+  let cursor = 0
+  const take = (init) => {
+    const slot = cursor
+    cursor += 1
+    if (slots.length <= slot) slots[slot] = init()
+    return slot
+  }
+  return {
+    reset: () => { cursor = 0 },
+    createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat() }),
+    useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot(),
+    useState: (initial) => {
+      const slot = take(() => (typeof initial === 'function' ? initial() : initial))
+      return [slots[slot], (next) => { slots[slot] = typeof next === 'function' ? next(slots[slot]) : next }]
+    },
+    useRef: (initial) => slots[take(() => ({ current: initial }))],
+    useEffect: () => {},
+    useMemo: (build) => build(),
+  }
+}
+
+/** Every node of a rendered element tree, function components expanded. */
+function nodesOf(node, out = []) {
+  if (node === null || typeof node !== 'object') return out
+  if (Array.isArray(node)) { for (const child of node) nodesOf(child, out); return out }
+  if (typeof node.type === 'function') return nodesOf(node.type(node.props), out)
+  out.push(node)
+  return nodesOf(node.children, out)
+}
+
+const textOfNode = (node) => (typeof node === 'string' ? node
+  : Array.isArray(node) ? node.map(textOfNode).join('')
+    : node !== null && typeof node === 'object' ? textOfNode(node.children) : '')
+
+// ConfigForm.set/unset/mutate resolve `false` when the host refuses the write
+// (an overlay row, a revision conflict) instead of throwing, so the card must
+// report that itself rather than let the form quietly reload the old value.
+test('the Legion card reports a settings write the host refuses', async () => {
+  const React = statefulReact()
+  const client = await clientWith(React)
+  const writes = []
+  const snapshot = {
+    status: 'ready',
+    value: { minSubtasks: 2, maxSubtasks: 4, maxDepth: 0, workersPerTask: 1, mergeStrategy: 'best',
+      maxReviewRetries: 2, requireHumanApproval: true, maxTasksPerRun: 0 },
+    user: { maxDepth: 3 },
+    writable: true,
+  }
+  const refuse = (op) => (...args) => { writes.push([op, ...args]); return Promise.resolve(false) }
+  const scope = {
+    subscribe: () => () => {},
+    getSnapshot: () => snapshot,
+    set: refuse('set'),
+    unset: refuse('unset'),
+    mutate: refuse('mutate'),
+  }
+  let Card
+  client.apply({
+    configForms: { get: () => scope },
+    slots: {
+      inject: (_name, register) => { register() },
+      register: (options, component) => {
+        if (options.name === 'plugins.row.config') Card = component
+        return () => {}
+      },
+    },
+  })
+  const render = () => { React.reset(); return nodesOf(Card({ view: 'page' })) }
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+  render().find((node) => node.type === 'button' && textOfNode(node) === 'Reconcile').props.onClick()
+  await settle()
+  assert.deepEqual(writes, [['set', 'mergeStrategy', 'reconcile']])
+  assert.match(textOfNode(render()), /The settings document refused the change\./)
+
+  render().find((node) => node.type === 'button' && /^Reset/.test(textOfNode(node))).props.onClick()
+  await settle()
+  assert.deepEqual(writes.at(-1), ['unset', 'maxDepth'])
+  assert.match(textOfNode(render()), /refused the change/, 'a refused reset is reported too')
 })
