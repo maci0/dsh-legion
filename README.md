@@ -89,7 +89,8 @@ colored by status (completed, in progress, pending), joined by tree rails, each
 carrying the task id, subject, owner, readiness, extra blockers, and write-scope
 overlaps. Branches collapse from their own twisty, a legend names the statuses,
 and the header counts tasks, levels, and members. That is spydr's graph language
-in the harness's own CSS: no canvas, no graph library, no extra dependency.
+in the harness's own CSS: no canvas, no graph library, no extra dependency. Its copy
+ships in English and Chinese, from the same dictionaries as the card.
 
 The roster ceiling is Agent Teams' `maxMembers`, not this plugin's; raise it in
 the same profile patch (the bundled default is 8, i.e. the lead plus 7
@@ -134,7 +135,6 @@ process memory, so a restart cannot strand a run.
   of the team, and are refused from a session outside one.
 - Settings are read when a verb runs, not when the plugin loads: no restart,
   no card reload needed.
-- The Legion view's copy is English only; the settings card is localized.
 
 ## Development
 

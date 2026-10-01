@@ -796,3 +796,63 @@ test('the Legion card copy comes from en and zh dictionaries covering every key 
   assert.ok(locale.used.has('refused'), 'the refused-write message is localized')
   assert.ok(page.includes(dicts.zh.refused), 'the active locale renders')
 })
+
+// The view shares the card's en/zh dictionaries. Its keys are read off real
+// renders: no Agent Teams, no run, a full board (owner, ready, extra
+// blockers, overlaps, a loop, a failed member, a projection failure), and a
+// collapsed branch, so a string added without a translation fails here.
+test('the Legion view copy comes from the en and zh dictionaries', async () => {
+  const React = statefulReact()
+  const client = await clientWith(React)
+  const locale = localeStub('zh')
+  let View
+  client.apply({
+    effect: (fn) => fn(),
+    locale,
+    configForms: { get: () => ({ subscribe: () => () => {}, getSnapshot: () => ({ status: 'loading' }) }) },
+    slots: {
+      inject: (_name, register) => { register() },
+      register: (options, component) => {
+        if (options.name === 'conversation.view') View = component
+        return () => {}
+      },
+    },
+  })
+  const { dicts } = locale.registered[0]
+  const render = (team) => { React.reset(); return View({ useProjection: () => team }) }
+
+  render(undefined)
+  render({ members: [], tasks: [] })
+  const team = {
+    members: [
+      { id: 'l', name: 'lead', role: 'lead', phase: 'active' },
+      { id: 'w', name: 'scribe', role: 'teammate', phase: 'failed', error: 'spawn failed' },
+      { id: 'p', name: 'probe', role: 'teammate', phase: 'provisioning' },
+    ],
+    tasks: [
+      { id: 'task-1', subject: 'root', status: 'completed', blockedBy: [], writeScopes: [], writeScopeWarnings: [] },
+      { id: 'task-2', subject: 'child', status: 'in_progress', blockedBy: ['task-1'], ownerName: 'scribe',
+        writeScopes: [], writeScopeWarnings: ['src/ overlaps task-3'] },
+      { id: 'task-3', subject: 'leaf', status: 'pending', blockedBy: ['task-2', 'task-1'], ready: false,
+        writeScopes: [], writeScopeWarnings: [] },
+      { id: 'task-4', subject: 'next', status: 'pending', blockedBy: [], ready: true, writeScopes: [], writeScopeWarnings: [] },
+      { id: 'x', subject: 'loop a', status: 'pending', blockedBy: ['y'], writeScopes: [], writeScopeWarnings: [] },
+      { id: 'y', subject: 'loop b', status: 'pending', blockedBy: ['x'], writeScopes: [], writeScopeWarnings: [] },
+    ],
+    failure: 'decode failed',
+  }
+  const page = textOfNode(nodesOf(render(team)))
+  nodesOf(render(team)).find((node) => node.type === 'button' && node.props.className === 'lgv-twisty').props.onClick()
+  render(team)
+
+  assert.ok(locale.used.size > 0, 'the view asked for no keys')
+  for (const key of locale.used) {
+    assert.equal(typeof dicts.en[key], 'string', `en lacks "${key}"`)
+    assert.equal(typeof dicts.zh[key], 'string', `zh lacks "${key}"`)
+  }
+  assert.deepEqual(Object.keys(dicts.zh).sort(), Object.keys(dicts.en).sort(), 'zh and en carry the same keys')
+  for (const key of ['viewTitle', 'viewSummary', 'chipReady', 'cycle', 'hidden', 'noTeams', 'noRun', 'projectionFailure']) {
+    assert.ok(locale.used.has(key), `the view never rendered "${key}"`)
+  }
+  assert.ok(page.includes(dicts.zh.chipReady), 'the active locale renders')
+})
