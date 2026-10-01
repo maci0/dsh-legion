@@ -99,7 +99,7 @@ empty state instead.
 
 `dsh plugin add dsh-legion`, or add the package to your profile's
 `cordis.patch.yml` bundles. The bundled `cordis.patch.yml` inserts the `legion`
-row automatically. For local development: `--patch cordis.local.yml`.
+row automatically. For local development, `dsh plugin --profile <name> add <path-to-checkout>`.
 
 Requires Agent Teams (`ctx.agentTeams`) — the verbs that touch the roster or
 the board, and the Legion view, say so instead of failing silently when it is
