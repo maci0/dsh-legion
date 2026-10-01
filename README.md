@@ -14,7 +14,7 @@ human gates the root.
 > would win).
 
 ```sh
-dsh plugin --profile web add github:maci0/dsh-legion#v0.7.0
+dsh plugin --profile web add github:maci0/dsh-legion#v0.8.0
 ```
 
 Pin a release tag: a bare `github:` spec floats on `main`. To upgrade, run the same command with the newer tag, then restart `dsh web` (bundle layers compose at boot).
