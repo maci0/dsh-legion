@@ -16,8 +16,7 @@
  * so a change applies to the next run with no reload and costs no prompt
  * on turns where no run is active.
  *
- * Load via a row in ~/.dsh/profiles/<profile>/cordis.patch.yml, or
- * `--patch cordis.local.yml`.
+ * For local development, `dsh plugin --profile <name> add <path-to-checkout>`.
  */
 import z from '@deepseek-ai/schemastery'
 import { createUserMessage } from '@deepseek-ai/dsh-llm/message'
