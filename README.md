@@ -137,11 +137,13 @@ process memory, so a restart cannot strand a run.
 
 ## Development
 
-`npm test` (`node --test tests/*.test.js`): pure-logic tests (`parseLegion`, `clampSettings`, `buildKickoff`,
+`bun test`: pure-logic tests (`parseLegion`, `clampSettings`, `buildKickoff`,
 `formatStatus`, `formatConfig`, `relayText`), the view's tree fold
 (`buildTaskTree`, loaded from the browser half with a stubbed module loader),
-handler tests over a fake host context, and a real Cordis composition. `npm install` first: the handler
+handler tests over a fake host context, and a real Cordis composition. `bun install --frozen-lockfile` first: the handler
 and composition tests load the real module and need the dev dependencies.
+
+dsh loads plugins on Node `^22.19.0 || >=24.0.0`; development and tests run on bun.
 
 For local development, `dsh plugin --profile <name> add <path-to-checkout>`.
 
