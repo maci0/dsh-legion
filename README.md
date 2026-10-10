@@ -14,10 +14,12 @@ human gates the root.
 > would win).
 
 ```sh
-dsh plugin --profile web add github:maci0/dsh-legion#v0.8.1
+dsh plugin --profile web add github:maci0/dsh-legion#v0.8.2
 ```
 
-Pin a release tag: a bare `github:` spec floats on `main`. To upgrade, run the same command with the newer tag, then restart `dsh web` (bundle layers compose at boot).
+Pin a release tag: a bare `github:` spec floats on `main`. To upgrade, run the
+same command with the newer tag, then restart `dsh web` (bundle layers compose
+at boot).
 
 The bundled `cordis.patch.yml` inserts the `legion` row automatically.
 
