@@ -10,7 +10,7 @@
 # dedupe ids, and a second row would register the plugin twice.
 - insert:
     - id: legion
-      name: 'dsh-legion'
+      name: '@maci0/dsh-legion'
       config:
         minSubtasks: 2
         maxSubtasks: 4
