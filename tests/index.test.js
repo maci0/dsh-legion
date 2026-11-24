@@ -500,6 +500,53 @@ test('the browser half registers the Legion view beside Chat and Trajectory', as
   assert.equal(view.options.label, 'Legion')
 })
 
+/** A `document` with just the head a stylesheet is appended to. */
+function createDocument() {
+  const head = { children: [], append: (node) => { head.children.push(node) } }
+  return {
+    head,
+    createElement: (tagName) => {
+      const attributes = new Map()
+      const node = {
+        tagName: tagName.toUpperCase(),
+        textContent: '',
+        setAttribute: (name, value) => { attributes.set(name, String(value)) },
+        getAttribute: (name) => attributes.get(name) ?? null,
+        remove: () => { head.children = head.children.filter((child) => child !== node) },
+      }
+      return node
+    },
+  }
+}
+
+test('the browser half installs one tagged stylesheet and dispose removes it', async () => {
+  const client = await clientModule()
+  const disposers = []
+  const ctx = {
+    effect: (fn) => {
+      const dispose = fn()
+      if (typeof dispose === 'function') disposers.push(dispose)
+    },
+    locale: localeStub('en'),
+    configForms: { get: () => ({ subscribe: () => () => {}, getSnapshot: () => ({ status: 'ready', value: {}, user: {}, writable: true }) }) },
+    slots: { inject: () => {} },
+  }
+  const document = createDocument()
+  const styles = () => document.head.children.filter((node) =>
+    node.tagName === 'STYLE' && node.getAttribute('data-plugin') === '@maci0/dsh-legion')
+  globalThis.document = document
+  try {
+    client.apply(ctx)
+  } finally {
+    delete globalThis.document
+  }
+
+  assert.equal(styles().length, 1)
+  assert.match(styles()[0].textContent, /\.lg-/u)
+  for (const dispose of disposers.splice(0).reverse()) dispose()
+  assert.equal(styles().length, 0)
+})
+
 test('the Legion view folds the board into a blocked_by tree', async () => {
   const client = await clientModule()
   const tree = client.buildTaskTree([
